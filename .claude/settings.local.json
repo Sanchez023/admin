@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker-compose up:*)"
+      "Bash(docker-compose up:*)",
+      "Bash(npx tsc:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 30 npm run:*)",
+      "Bash(echo:*)",
+      "Bash(node:*)",
+      "Bash(powershell:*)",
+      "Bash(dir:*)"
     ]
   }
 }

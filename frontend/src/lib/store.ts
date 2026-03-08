@@ -699,6 +699,7 @@ export function listAuditLogs(orgSlug?: string): AuditLogDto[] {
   return auditLogs
     .filter((item) => item.orgId === orgId)
     .slice(-1000)
+    .slice()
     .reverse();
 }
 
@@ -730,6 +731,7 @@ export function listLogs(orgSlug?: string): SystemLogDto[] {
   return logs
     .filter((item) => item.orgId === orgId)
     .slice(-1000)
+    .slice()
     .reverse();
 }
 
@@ -749,6 +751,7 @@ export function listLogsFiltered(orgSlug: string | undefined, filter: LogsFilter
   const endMs = parseDateToMs(filter.endTime);
   let result = logs
     .filter((item) => item.orgId === orgId)
+    .slice()
     .reverse();
   if (startMs !== null) {
     result = result.filter((item) => {
@@ -796,6 +799,7 @@ export function listAuditLogsFiltered(orgSlug: string | undefined, filter: Audit
   let result = auditLogs
     .filter((item) => item.orgId === orgId)
     .slice(-1000)
+    .slice()
     .reverse();
   if (startMs !== null) {
     result = result.filter((item) => {
