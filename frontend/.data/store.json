@@ -1,0 +1,135 @@
+{
+  "providers": [
+    {
+      "id": "121065eb-53cf-4fff-82e6-252c80c5dae2",
+      "orgId": null,
+      "providerId": "openai",
+      "apiType": "openai",
+      "displayName": "OpenAI-Compatible",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "",
+      "apiKeyMasked": "",
+      "extraModels": [],
+      "isActive": true,
+      "activeModel": "gpt-4.1-mini",
+      "createdAt": "2026-03-06T03:36:40.650Z",
+      "updatedAt": "2026-03-06T03:36:41.746Z"
+    },
+    {
+      "id": "b54b7e4f-12d0-4b2c-9efc-00d4aa06f7ec",
+      "orgId": null,
+      "providerId": "deepseek",
+      "apiType": "anthropic",
+      "displayName": null,
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "extraModels": [
+        {
+          "id": "deepseek-chat",
+          "name": "DeepSeek Chat"
+        },
+        {
+          "id": "deepseek-reasoner",
+          "name": "DeepSeek Reasoner"
+        }
+      ],
+      "isActive": false,
+      "activeModel": null,
+      "createdAt": "2026-03-06T07:10:49.573Z",
+      "updatedAt": "2026-03-06T07:10:49.573Z"
+    }
+  ],
+  "skills": [
+    {
+      "id": "83bc66ef-7e33-4f4f-af94-efe7cbc44551",
+      "orgId": null,
+      "skillId": "docx",
+      "name": "Docx",
+      "enabled": true,
+      "sortOrder": 10,
+      "config": {},
+      "createdAt": "2026-03-06T03:36:40.651Z",
+      "updatedAt": "2026-03-06T03:36:40.651Z"
+    },
+    {
+      "id": "cc718a68-bd91-49b8-82dd-914c489197d7",
+      "orgId": null,
+      "skillId": "web-search",
+      "name": "Web Search",
+      "enabled": true,
+      "sortOrder": 20,
+      "config": {},
+      "createdAt": "2026-03-06T03:36:40.651Z",
+      "updatedAt": "2026-03-06T03:36:40.651Z"
+    }
+  ],
+  "mcpServers": [],
+  "ssoProviders": [],
+  "ssoPolicies": [
+    {
+      "orgId": null,
+      "mode": "required",
+      "autoProvision": true,
+      "defaultRole": "member",
+      "updatedAt": "2026-03-06T06:46:05.252Z"
+    }
+  ],
+  "logs": [],
+  "auditLogs": [
+    {
+      "id": "bfb94453-5e45-4219-90a6-9274fcae55d3",
+      "orgId": null,
+      "actorRole": "admin",
+      "action": "llm.setActiveProvider",
+      "resource": "llm.provider",
+      "targetId": "openai",
+      "details": {
+        "model": "gpt-4.1-mini"
+      },
+      "createdAt": "2026-03-06T03:36:41.747Z"
+    },
+    {
+      "id": "3bd01001-56f9-4c8d-9deb-feabfd8ada30",
+      "orgId": null,
+      "actorRole": "admin",
+      "action": "sso.updatePolicy",
+      "resource": "sso.policy",
+      "details": {
+        "mode": "disabled"
+      },
+      "createdAt": "2026-03-06T06:46:03.400Z"
+    },
+    {
+      "id": "79d5fb03-0f06-450f-875b-0fe27536fead",
+      "orgId": null,
+      "actorRole": "admin",
+      "action": "sso.updatePolicy",
+      "resource": "sso.policy",
+      "details": {
+        "mode": "required"
+      },
+      "createdAt": "2026-03-06T06:46:05.253Z"
+    },
+    {
+      "id": "5d993007-d9e7-4f4b-860f-2244aecfce22",
+      "orgId": null,
+      "actorRole": "admin",
+      "action": "llm.createProvider",
+      "resource": "llm.provider",
+      "targetId": "b54b7e4f-12d0-4b2c-9efc-00d4aa06f7ec",
+      "details": {
+        "providerId": "deepseek"
+      },
+      "createdAt": "2026-03-06T07:10:49.583Z"
+    }
+  ],
+  "organizations": [
+    {
+      "id": "4eb0fe88-ef7e-4bb9-98bb-3015abcd6da3",
+      "name": "Default",
+      "slug": "default",
+      "isActive": true,
+      "createdAt": "2026-03-06T03:36:40.651Z",
+      "updatedAt": "2026-03-06T03:36:40.651Z"
+    }
+  ]
+}

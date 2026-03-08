@@ -1,0 +1,1235 @@
+openapi: 3.0.3
+info:
+  title: Claw Admin API
+  description: Unified admin control plane for LLM/Skill/MCP config, SSO, organizations, users, and logs.
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: API v1 base path
+
+tags:
+  - name: auth
+    description: Authentication (login, refresh, logout, session)
+  - name: admin-llm
+    description: LLM provider management
+  - name: admin-skills
+    description: Skill management
+  - name: admin-mcp
+    description: MCP server management
+  - name: admin-logs
+    description: System and audit logs
+  - name: admin-organizations
+    description: Organization (tenant) management
+  - name: admin-users
+    description: User management
+  - name: admin-sso
+    description: SSO configuration
+  - name: client
+    description: Client read/report APIs (desktop, web)
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ---------- Auth ----------
+  /auth/login:
+    post:
+      tags: [auth]
+      security: []
+      summary: Account password login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Success, returns access_token and refresh_token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      access_token: { type: string }
+                      refresh_token: { type: string }
+                      expires_in: { type: integer }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Refresh access token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: New access token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      access_token: { type: string }
+                      expires_in: { type: integer }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Logout (invalidate token, JTI to blacklist)
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/session:
+    get:
+      tags: [auth]
+      summary: Current session / me
+      responses:
+        '200':
+          description: Current user and org
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      user: { $ref: '#/components/schemas/UserSummary' }
+                      orgId: { type: string, nullable: true }
+                      orgSlug: { type: string }
+                      role: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------- Admin LLM ----------
+  /admin/llm/providers:
+    get:
+      tags: [admin-llm]
+      summary: List LLM providers
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: List of providers (API key masked)
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [admin-llm]
+      summary: Create provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderCreate' }
+      responses:
+        '201':
+          description: Created
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/llm/providers/{id}:
+    get:
+      tags: [admin-llm]
+      summary: Get provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Provider (key masked)
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [admin-llm]
+      summary: Update provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderUpdate' }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [admin-llm]
+      summary: Delete provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/llm/providers/{id}/test:
+    post:
+      tags: [admin-llm]
+      summary: Test provider connection
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Test result (ok, latency, error)
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/llm/active:
+    get:
+      tags: [admin-llm]
+      summary: Get active provider and model
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: { providerId, model }
+    put:
+      tags: [admin-llm]
+      summary: Set active provider and model
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [providerId, model]
+              properties:
+                providerId: { type: string }
+                model: { type: string }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------- Admin Skills ----------
+  /admin/skills:
+    get:
+      tags: [admin-skills]
+      summary: List skills
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: List of skills
+    post:
+      tags: [admin-skills]
+      summary: Create/register skill
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skillId: { type: string }
+                name: { type: string }
+                enabled: { type: boolean }
+                sortOrder: { type: integer }
+                config: { type: object }
+      responses:
+        '201':
+          description: Created
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/skills/{id}:
+    get:
+      tags: [admin-skills]
+      summary: Get skill
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Skill
+    put:
+      tags: [admin-skills]
+      summary: Update skill
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                sortOrder: { type: integer }
+                config: { type: object }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [admin-skills]
+      summary: Delete skill config
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/skills/{id}/config:
+    get:
+      tags: [admin-skills]
+      summary: Get skill config
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Config object
+    put:
+      tags: [admin-skills]
+      summary: Update skill config
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [config]
+              properties:
+                config: { type: object }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------- Admin MCP ----------
+  /admin/mcp/servers:
+    get:
+      tags: [admin-mcp]
+      summary: List MCP servers
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: List of MCP servers
+    post:
+      tags: [admin-mcp]
+      summary: Create MCP server
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, transportType]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                transportType: { type: string, enum: [stdio, http] }
+                command: { type: string }
+                args: { type: array, items: { type: string } }
+                env: { type: object }
+                url: { type: string }
+                headers: { type: object }
+                enabled: { type: boolean }
+      responses:
+        '201':
+          description: Created
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/mcp/servers/{id}:
+    get:
+      tags: [admin-mcp]
+      summary: Get MCP server
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: MCP server
+    put:
+      tags: [admin-mcp]
+      summary: Update MCP server
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                transportType: { type: string, enum: [stdio, http] }
+                command: { type: string }
+                args: { type: array, items: { type: string } }
+                env: { type: object }
+                url: { type: string }
+                headers: { type: object }
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [admin-mcp]
+      summary: Delete MCP server
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/mcp/servers/{id}/enabled:
+    put:
+      tags: [admin-mcp]
+      summary: Enable/disable MCP server
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------- Admin Logs ----------
+  /admin/logs:
+    get:
+      tags: [admin-logs]
+      summary: Query system logs
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: client
+          in: query
+          schema: { type: string, enum: [desktop, web] }
+        - name: level
+          in: query
+          schema: { type: string, enum: [debug, info, warn, error] }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Paginated logs
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/logs/export:
+    get:
+      tags: [admin-logs]
+      summary: Export logs (CSV/JSON)
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: format
+          in: query
+          schema: { type: string, enum: [csv, json], default: json }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: File download
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/audit:
+    get:
+      tags: [admin-logs]
+      summary: Query audit events
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: userId
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Paginated audit logs
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------- Admin Organizations ----------
+  /admin/organizations:
+    get:
+      tags: [admin-organizations]
+      summary: List organizations
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: name
+          in: query
+          schema: { type: string }
+        - name: slug
+          in: query
+          schema: { type: string }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paginated organizations
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [admin-organizations]
+      summary: Create organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name: { type: string }
+                slug: { type: string }
+                plan: { type: string }
+                isActive: { type: boolean }
+                settings: { type: object }
+      responses:
+        '201':
+          description: Created
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Slug already exists
+
+  /admin/organizations/{id}:
+    get:
+      tags: [admin-organizations]
+      summary: Get organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Organization
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [admin-organizations]
+      summary: Update organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                slug: { type: string }
+                plan: { type: string }
+                isActive: { type: boolean }
+                settings: { type: object }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [admin-organizations]
+      summary: Delete organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/organizations/{id}/members:
+    get:
+      tags: [admin-organizations]
+      summary: List organization members
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Members with roles
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [admin-organizations]
+      summary: Add member to organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, role]
+              properties:
+                userId: { type: string }
+                role: { type: string, enum: [owner, admin, member, viewer] }
+      responses:
+        '201':
+          description: Added
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [admin-organizations]
+      summary: Update member role
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, role]
+              properties:
+                userId: { type: string }
+                role: { type: string, enum: [owner, admin, member, viewer] }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [admin-organizations]
+      summary: Remove member from organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: string }
+      responses:
+        '204':
+          description: Removed
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------- Admin Users ----------
+  /admin/users:
+    get:
+      tags: [admin-users]
+      summary: List users
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: orgId
+          in: query
+          schema: { type: string }
+        - name: role
+          in: query
+          schema: { type: string, enum: [owner, admin, member, viewer] }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paginated users (sensitive fields masked)
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [admin-users]
+      summary: Create user
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                name: { type: string }
+                organizationId: { type: string }
+                role: { type: string, enum: [owner, admin, member, viewer] }
+      responses:
+        '201':
+          description: Created
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Email already exists
+
+  /admin/users/invite:
+    post:
+      tags: [admin-users]
+      summary: Invite user to organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, organizationId, role]
+              properties:
+                email: { type: string, format: email }
+                organizationId: { type: string }
+                role: { type: string, enum: [owner, admin, member, viewer] }
+                message: { type: string }
+      responses:
+        '201':
+          description: Invitation sent or created
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}:
+    get:
+      tags: [admin-users]
+      summary: Get user detail (organizations and roles)
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User with org/role list
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [admin-users]
+      summary: Update user
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                avatar: { type: string }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [admin-users]
+      summary: Disable or delete user
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted or disabled
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}/roles:
+    get:
+      tags: [admin-users]
+      summary: Get user roles per organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: List of { orgId, orgSlug, role }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [admin-users]
+      summary: Set user role in an organization
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orgId, role]
+              properties:
+                orgId: { type: string }
+                role: { type: string, enum: [owner, admin, member, viewer] }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------- Admin SSO ----------
+  /admin/sso/policy:
+    get:
+      tags: [admin-sso]
+      summary: Get SSO policy
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: SSO policy (mode, autoProvision, defaultRole)
+    put:
+      tags: [admin-sso]
+      summary: Update SSO policy
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [disabled, optional, required] }
+                autoProvision: { type: boolean }
+                defaultRole: { type: string, enum: [member, admin] }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/sso/providers:
+    get:
+      tags: [admin-sso]
+      summary: List SSO providers
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: List (clientSecret masked)
+    post:
+      tags: [admin-sso]
+      summary: Create SSO provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, issuer, clientId]
+              properties:
+                provider: { type: string, enum: [oidc, saml] }
+                name: { type: string }
+                issuer: { type: string }
+                clientId: { type: string }
+                clientSecret: { type: string }
+                config: { type: object }
+      responses:
+        '201':
+          description: Created
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/sso/providers/{id}:
+    get:
+      tags: [admin-sso]
+      summary: Get SSO provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Provider (secret masked)
+    put:
+      tags: [admin-sso]
+      summary: Update SSO provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                issuer: { type: string }
+                clientId: { type: string }
+                clientSecret: { type: string }
+                config: { type: object }
+      responses:
+        '200':
+          description: Updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [admin-sso]
+      summary: Delete SSO provider
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------- Client (read/report) ----------
+  /client/config/llm:
+    get:
+      tags: [client]
+      summary: Get current tenant LLM config (for desktop/web)
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: Merged providers and active model
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /client/config/skills:
+    get:
+      tags: [client]
+      summary: Get current tenant skills
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: Skill list with config
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /client/config/mcp:
+    get:
+      tags: [client]
+      summary: Get current tenant MCP servers
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      responses:
+        '200':
+          description: MCP server list
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /client/logs:
+    post:
+      tags: [client]
+      summary: Batch report logs (desktop/web)
+      parameters:
+        - $ref: '#/components/parameters/XOrgId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client, items]
+              properties:
+                client: { type: string, enum: [desktop, web] }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      level: { type: string, enum: [debug, info, warn, error] }
+                      message: { type: string }
+                      meta: { type: object }
+      responses:
+        '202':
+          description: Accepted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Rate limited
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  parameters:
+    XOrgId:
+      name: X-Org-Id
+      in: header
+      description: Tenant slug (optional; can come from JWT org_id)
+      schema:
+        type: string
+        example: default
+
+  schemas:
+    UserSummary:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string, nullable: true }
+        isSuperAdmin: { type: boolean }
+    ProviderCreate:
+      type: object
+      required: [providerId]
+      properties:
+        orgId: { type: string, nullable: true }
+        providerId: { type: string }
+        displayName: { type: string }
+        baseUrl: { type: string }
+        apiKey: { type: string }
+        extraModels: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string } } } }
+        isActive: { type: boolean }
+        activeModel: { type: string }
+    ProviderUpdate:
+      type: object
+      properties:
+        displayName: { type: string }
+        baseUrl: { type: string }
+        apiKey: { type: string }
+        extraModels: { type: array }
+        isActive: { type: boolean }
+        activeModel: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean, example: false }
+              error:
+                type: object
+                properties:
+                  code: { type: string, example: UNAUTHORIZED }
+                  message: { type: string }
+                  details: { type: object }
+    Forbidden:
+      description: Forbidden (admin role required)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean, example: false }
+              error:
+                type: object
+                properties:
+                  code: { type: string, example: FORBIDDEN }
+                  message: { type: string }
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean, example: false }
+              error:
+                type: object
+                properties:
+                  code: { type: string, example: VALIDATION_ERROR }
+                  message: { type: string }
+                  details: { type: object }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean, example: false }
+              error:
+                type: object
+                properties:
+                  code: { type: string, example: NOT_FOUND }
+                  message: { type: string }

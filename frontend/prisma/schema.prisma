@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== Enums ====================
+
+enum ClientType {
+  desktop
+  web
+}
+
+enum LogLevel {
+  debug
+  info
+  warn
+  error
+}
+
+enum MCPTransportType {
+  stdio
+  http
+}
+
+enum OrgRole {
+  owner
+  admin
+  member
+  viewer
+}
+
+// ==================== Tenant & User ====================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("free")
+  settings  Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  userRoles     UserRole[]
+  providers     ProviderConfig[]
+  skillConfigs  SkillConfig[]
+  mcpServers    MCPServerConfig[]
+  auditLogs     AuditLog[]
+  systemLogs    SystemLog[]
+  apiKeys       ApiKey[]
+  ssoConfigs    SsoConfig[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String?
+  avatar        String?
+  isSuperAdmin  Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  userRoles      UserRole[]
+
+  @@index([email])
+  @@index([organizationId])
+}
+
+model UserRole {
+  id     String  @id @default(cuid())
+  userId String
+  orgId  String
+  role   OrgRole @default(member)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+}
+
+model ApiKey {
+  id          String     @id @default(cuid())
+  orgId       String
+  name        String
+  keyHash     String     @unique
+  keyPrefix   String
+  permissions String[]   @default(["client:config:read", "client:logs:write"])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([keyHash])
+}
+
+model SsoConfig {
+  id               String   @id @default(cuid())
+  orgId            String
+  provider         String
+  issuer           String
+  clientId         String
+  clientSecretEnc  String?
+  clientSecretIv   String?
+  config           Json?
+  isActive         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// ==================== Config ====================
+
+model ProviderConfig {
+  id           String   @id @default(cuid())
+  orgId        String?
+  providerId   String
+  displayName  String?
+  baseUrl      String?
+  apiKeyEnc    String?
+  apiKeyIv     String?
+  extraModels  Json?
+  isActive     Boolean  @default(false)
+  activeModel  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, providerId])
+  @@index([orgId])
+}
+
+model SkillConfig {
+  id        String   @id @default(cuid())
+  orgId     String?
+  skillId   String
+  name      String?
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, skillId])
+  @@index([orgId])
+}
+
+model MCPServerConfig {
+  id            String           @id @default(cuid())
+  orgId         String?
+  name          String
+  description   String?
+  transportType MCPTransportType
+  command       String?
+  args          Json?
+  env           Json?
+  url           String?
+  headersEnc    String?
+  headersIv     String?
+  enabled       Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+}
+
+// ==================== Logs & Audit ====================
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  orgId     String?
+  userId    String?
+  userEmail String?
+  client    ClientType?
+  action    String
+  resource  String?
+  details   Json?
+  level     LogLevel    @default(info)
+  ip        String?
+  userAgent String?
+  createdAt DateTime    @default(now())
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([client, createdAt])
+  @@index([action])
+}
+
+model SystemLog {
+  id        String     @id @default(cuid())
+  orgId     String?
+  client    ClientType?
+  message   String
+  level     LogLevel
+  meta      Json?
+  createdAt DateTime   @default(now())
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([createdAt])
+  @@index([client, createdAt])
+  @@index([level])
+}
+
+model TokenBlacklist {
+  id        String   @id @default(cuid())
+  jti       String   @unique
+  exp       DateTime
+  createdAt DateTime @default(now())
+
+  @@index([exp])
+}

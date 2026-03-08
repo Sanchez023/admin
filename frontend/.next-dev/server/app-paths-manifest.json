@@ -1,0 +1,7 @@
+{
+  "/(dashboard)/sso/page": "app/(dashboard)/sso/page.js",
+  "/(dashboard)/mcp/page": "app/(dashboard)/mcp/page.js",
+  "/(dashboard)/llm/page": "app/(dashboard)/llm/page.js",
+  "/(dashboard)/tenant/page": "app/(dashboard)/tenant/page.js",
+  "/(dashboard)/page": "app/(dashboard)/page.js"
+}

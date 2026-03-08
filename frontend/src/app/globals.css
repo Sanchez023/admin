@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', PingFang SC,
+    Hiragino Sans GB, Microsoft YaHei, Helvetica Neue, Helvetica, Arial,
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  color-scheme: light;
+  --bg-page: #f5f5f7;
+  --bg-surface: #ffffff;
+  --text-primary: #1f2329;
+  --text-secondary: #646a73;
+  --border: #e8e8eb;
+}
+
+.dark,
+.dark body {
+  color-scheme: dark;
+  --bg-page: #1a1c20;
+  --bg-surface: #1a1d27;
+  --text-primary: #e4e5e9;
+  --text-secondary: #9ca3af;
+  --border: #2a2e38;
+}
+
+html {
+  @apply min-h-full;
+}
+
+body {
+  @apply min-h-screen min-w-[320px] antialiased;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
+
+/* Scrollbar - 6px, track transparent, thumb border color */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme('colors.border.DEFAULT') transparent;
+}
+
+.dark * {
+  scrollbar-color: theme('colors.dark-border.DEFAULT') transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: theme('colors.border.DEFAULT');
+  border-radius: 3px;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background-color: theme('colors.dark-border.DEFAULT');
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: theme('colors.text-secondary');
+}
+
+/* Focus ring - primary lighter */
+*:focus-visible {
+  @apply outline-none ring-2 ring-offset-2;
+  --tw-ring-color: theme('colors.primary.lighter');
+}
+
+.dark *:focus-visible {
+  --tw-ring-color: #5ba3e0;
+}
+
+/* Button base */
+.btn-primary {
+  @apply bg-primary hover:bg-primary-light text-white font-medium text-sm py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+}
+
+.dark .btn-primary {
+  @apply bg-dark-primary hover:bg-dark-primary-lighter;
+}
+
+.btn-secondary {
+  @apply bg-surface dark:bg-dark-surface border border-border dark:border-dark-border text-text-primary dark:text-dark-text hover:bg-surface-hover dark:hover:bg-dark-surface-hover font-medium text-sm py-2 px-4 rounded-lg transition-colors;
+}
+
+.btn-danger {
+  @apply bg-red-500 hover:bg-red-600 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors;
+}
+
+.dark .btn-danger {
+  @apply bg-red-500 hover:bg-red-600;
+}
