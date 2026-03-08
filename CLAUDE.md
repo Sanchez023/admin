@@ -10,10 +10,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 cd frontend
-npm install          # Install dependencies
-npm run dev         # Start dev server (port 3006)
-npm run build       # Build for production
-npm run start       # Start production server (port 3006)
+# 临时切换淘宝源加速（推荐中国大陆开发者）
+npm config set registry https://registry.npmmirror.com/
+npm ci                # Install dependencies (use ci for clean install)
+npm run dev           # Start dev server (port 3006)
+npm run build         # Build for production
+npm run start         # Start production server (port 3006)
 npm run prisma:generate   # Generate Prisma client
 npm run prisma:migrate    # Run database migrations
 ```

@@ -1,15 +1,17 @@
 # Frontend Dockerfile
 FROM node:20-alpine AS base
 
-# Install dependencies only when needed
+
+# 使用中国大陆 npm 镜像源
 FROM base AS deps
 WORKDIR /app
 
 # Copy package files
 COPY frontend/package.json frontend/package-lock.json* ./
 
-# Install dependencies
-RUN npm ci
+# 设置 npm 镜像为淘宝源
+RUN npm config set registry https://registry.npmmirror.com/ \
+	&& npm install --verbose --no-audit
 
 # Development image
 FROM base AS development
@@ -31,14 +33,15 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ .
 
-# Copy Prisma schema if exists
-COPY --from=deps /app/prisma ./prisma 2>/dev/null || true
 
-# Generate Prisma client (only if schema exists)
-RUN if [ -f prisma/schema.prisma ]; then npx prisma generate; fi
+
+
+# 直接使用本地已生成的 node_modules 和 .prisma
+COPY frontend/node_modules ./node_modules
+COPY frontend/prisma ./prisma
 
 # Build the Next.js application
-RUN npm run build
+RUN  npm run build
 
 # Production image
 FROM base AS runner
